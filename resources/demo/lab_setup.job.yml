@@ -1,0 +1,63 @@
+# DEMO mode only.
+targets:
+  demo:
+    resources: &lab_setup
+      jobs:
+        lab_setup:
+          name: ${var.resource_prefix}_setup
+          description: "DEMO mode. Creates synthetic patient data, UC masks, a row filter, ABAC tag policies, an ai_mask-ed notes table, the Genie Agent and the GenAI objects. Records everything it creates in lab_manifest."
+          # Job-level parameters (bundle variables are the defaults; 00_run_lab passes its values at run time).
+          parameters:
+            - {name: suite_run_id, default: ""}
+            - {name: warehouse_id, default: "${var.warehouse_id}"}
+            - {name: clinicians_group, default: "${var.clinicians_group}"}
+            - {name: pii_readers_group, default: "${var.pii_readers_group}"}
+            - {name: all_facilities_group, default: "${var.all_facilities_group}"}
+            - {name: outsiders_group, default: "${var.outsiders_group}"}
+            - {name: vs_endpoint, default: "${var.vs_endpoint}"}
+            - {name: agent_endpoint, default: "${var.agent_endpoint}"}
+          tasks:
+            - task_key: setup_data
+              notebook_task:
+                notebook_path: ../../src/notebooks/00_setup_data.py
+                base_parameters:
+                  catalog: ${var.catalog}
+                  schema: ${resources.schemas.lab.name}
+            - task_key: uc_policies
+              depends_on: [{task_key: setup_data}]
+              notebook_task:
+                notebook_path: ../../src/notebooks/10_uc_policies.py
+                base_parameters:
+                  catalog: ${var.catalog}
+                  schema: ${resources.schemas.lab.name}
+                  resource_prefix: ${var.resource_prefix}
+                  pii_tag_key: ${var.pii_tag_key}
+                  pii_tag_value: ${var.pii_tag_value}
+                  nric_tag_keys: ${var.nric_tag_keys}
+            - task_key: masked_notes
+              depends_on: [{task_key: uc_policies}]
+              notebook_task:
+                notebook_path: ../../src/notebooks/15_masked_notes.py
+                base_parameters:
+                  catalog: ${var.catalog}
+                  schema: ${resources.schemas.lab.name}
+            - task_key: genie_agent
+              depends_on: [{task_key: masked_notes}]
+              notebook_task:
+                notebook_path: ../../src/notebooks/16_genie_agent.py
+                base_parameters:
+                  catalog: ${var.catalog}
+                  schema: ${resources.schemas.lab.name}
+            - task_key: genai_surfaces
+              depends_on: [{task_key: masked_notes}]
+              notebook_task:
+                notebook_path: ../../src/notebooks/17_genai_setup.py
+                base_parameters:
+                  catalog: ${var.catalog}
+                  schema: ${resources.schemas.lab.name}
+                  resource_prefix: ${var.resource_prefix}
+                  embedding_model: ${var.embedding_model}
+  customer:
+    resources: *lab_setup
+  workspace:
+    resources: *lab_setup

@@ -1,0 +1,55 @@
+# DEMO mode only. Unity Gateway model service owned by the lab (deck Layer 3), named <resource_prefix>_chat.
+# - EXECUTE only for clinicians and PII readers: outsiders are denied (G-01)
+# - Rate limit: 2 requests per minute for the clinicians group (G-03)
+# - Inference table in the lab schema: every request and response is logged (G-04)
+# Attach the NRIC service policy by hand (docs/manual-steps.md M-04) to turn G-02 into PASS.
+# The bundle resource key stays lab_chat; the service name follows resource_prefix (default: lab_chat).
+targets:
+  demo:
+    resources: &lab_chat
+      model_services:
+        lab_chat:
+          parent: schemas/${var.catalog}.${resources.schemas.lab.name}
+          model_service_id: ${var.resource_prefix}_chat
+          comment: "GenAI governance lab: governed chat model for the persona tests"
+          config:
+            routing:
+              destinations:
+                - name: primary
+                  destination_type: DESTINATION_TYPE_PAY_PER_TOKEN_FOUNDATION_MODEL
+                  pay_per_token_config:
+                    model: ${var.chat_model}
+            rate_limits:
+              - key: RATE_LIMIT_KEY_USER_GROUP
+                principal: ${var.clinicians_group}
+                requests: 2
+                renewal_period: RATE_LIMIT_RENEWAL_PERIOD_MINUTE
+            inference_table:
+              parent: schemas/${var.catalog}.${resources.schemas.lab.name}
+              table_name_prefix: ${var.resource_prefix}_chat
+          grants:
+            - principal: ${var.clinicians_group}
+              privileges: [EXECUTE]
+            - principal: ${var.pii_readers_group}
+              privileges: [EXECUTE]
+  customer:
+    resources: *lab_chat
+  # Same service without identities (the personas don't exist at deploy time). 17_genai_setup adds EXECUTE for
+  # clinicians and PII readers and the clinicians' rate limit at run time (and verifies them).
+  workspace:
+    resources:
+      model_services:
+        lab_chat:
+          parent: schemas/${var.catalog}.${resources.schemas.lab.name}
+          model_service_id: ${var.resource_prefix}_chat
+          comment: "GenAI governance lab: governed chat model for the persona tests"
+          config:
+            routing:
+              destinations:
+                - name: primary
+                  destination_type: DESTINATION_TYPE_PAY_PER_TOKEN_FOUNDATION_MODEL
+                  pay_per_token_config:
+                    model: ${var.chat_model}
+            inference_table:
+              parent: schemas/${var.catalog}.${resources.schemas.lab.name}
+              table_name_prefix: ${var.resource_prefix}_chat

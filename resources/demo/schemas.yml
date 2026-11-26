@@ -1,0 +1,45 @@
+# DEMO mode only. Persona grants on the lab schema and the tools schema.
+targets:
+  demo:
+    resources: &schemas
+      schemas:
+        lab:
+          # Schema-level access only. No EXECUTE here on purpose: a schema-level EXECUTE grant also
+          # covers every Unity Gateway model service in the schema (it would let outsiders call <prefix>_chat).
+          # Table-level SELECT/MODIFY is granted in src/notebooks/10_uc_policies.py so the raw notes table
+          # stays private (D-04) and each persona can write only its own results staging table.
+          # Outsiders get the same data access as clinicians, so the Genie tests isolate the Genie Agent
+          # permission rather than the table grant.
+          grants:
+            - principal: ${var.clinicians_group}
+              privileges: [USE_SCHEMA]
+            - principal: ${var.pii_readers_group}
+              privileges: [USE_SCHEMA]
+            - principal: ${var.outsiders_group}
+              privileges: [USE_SCHEMA]
+        # Separate schema for the agent tool (MCP) test T-01: every persona can see it, but only
+        # clinicians get EXECUTE on the function (granted in 17_genai_setup).
+        # It is also the "builder" schema for B-01 … B-05: 17_genai_setup grants CREATE SERVICE here to
+        # clinicians only (in SQL, because the bundle schema doesn't list that privilege yet). Nobody gets
+        # CREATE CONNECTION, so nobody can register an external MCP server.
+        lab_tools:
+          catalog_name: ${var.catalog}
+          name: ${var.schema}_tools
+          comment: "GenAI governance lab: UC function exposed as an MCP tool. Safe to drop."
+          grants:
+            - principal: ${var.clinicians_group}
+              privileges: [USE_SCHEMA]
+            - principal: ${var.pii_readers_group}
+              privileges: [USE_SCHEMA]
+            - principal: ${var.outsiders_group}
+              privileges: [USE_SCHEMA]
+  customer:
+    resources: *schemas
+  # Same schemas without grants (no identity exists at deploy time). 10_uc_policies grants USE SCHEMA on both at run time.
+  workspace:
+    resources:
+      schemas:
+        lab_tools:
+          catalog_name: ${var.catalog}
+          name: ${var.schema}_tools
+          comment: "GenAI governance lab: UC function exposed as an MCP tool. Safe to drop."

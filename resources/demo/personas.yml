@@ -1,0 +1,75 @@
+# DEMO mode only. Each persona job runs AS a persona service principal, so every query, Genie
+# question and model call uses that identity's permissions. The deployer needs the Service Principal
+# User role on each (workspace/account admins have it). Each persona writes only its own staging
+# results table; lab_collect (runs as the deployer) merges them into test_results.
+#
+# run_as:
+#   demo / customer  bound at deploy time from the clinician_sp / pii_reader_sp / outsider_sp variables (CLI path).
+#   workspace        NOT set at deploy time (the personas don't exist yet). 00_run_lab sets run_as on these deployed
+#                    jobs (jobs update) after it created the personas, and re-asserts it before every run, because a
+#                    redeploy resets it. Run any other way, the jobs run as the deployer and the probe's identity
+#                    guard records SKIP: personas never silently run as the deployer.
+x-probe-params: &probe_params {persona: clinician, catalog: "${var.catalog}", schema: "${resources.schemas.lab.name}", fm_endpoint: "${var.fm_endpoint}", chat_model: "${var.chat_model}", resource_prefix: "${var.resource_prefix}"}
+x-probe-job-params: &probe_job_params
+  - {name: suite_run_id, default: ""}
+  - {name: warehouse_id, default: "${var.warehouse_id}"}
+  - {name: expected_policy, default: "${var.expected_policy}"}
+  - {name: gateway_endpoint, default: "${var.gateway_endpoint}"}
+  - {name: expected_principal, default: ""}   # the persona's application ID; set by 00_run_lab, checked by the probe
+x-clinician: &clinician
+  name: ${var.resource_prefix}_persona_clinician
+  description: "DEMO mode. Data, Genie and gateway probes as the clinician persona."
+  parameters: *probe_job_params
+  tasks:
+    - task_key: probe
+      notebook_task:
+        notebook_path: ../../src/notebooks/30_persona_probe.py
+        base_parameters: *probe_params
+x-pii-reader: &pii_reader
+  name: ${var.resource_prefix}_persona_pii_reader
+  description: "DEMO mode. Data, Genie and gateway probes as the PII reader persona."
+  parameters: *probe_job_params
+  tasks:
+    - task_key: probe
+      notebook_task:
+        notebook_path: ../../src/notebooks/30_persona_probe.py
+        base_parameters: {<<: *probe_params, persona: pii_reader}
+x-outsider: &outsider
+  name: ${var.resource_prefix}_persona_outsider
+  description: "DEMO mode. Data, Genie and gateway probes as the outsider persona."
+  parameters: *probe_job_params
+  tasks:
+    - task_key: probe
+      notebook_task:
+        notebook_path: ../../src/notebooks/30_persona_probe.py
+        base_parameters: {<<: *probe_params, persona: outsider}
+x-collect: &collect
+  name: ${var.resource_prefix}_collect
+  description: "DEMO mode. Trusted collector: merges each persona's staging results into test_results. Run after the persona jobs."
+  parameters: [{name: suite_run_id, default: ""}]
+  tasks:
+    - task_key: collect
+      notebook_task:
+        notebook_path: ../../src/notebooks/40_collect.py
+        base_parameters:
+          catalog: ${var.catalog}
+          schema: ${resources.schemas.lab.name}
+          resource_prefix: ${var.resource_prefix}
+
+targets:
+  demo:
+    resources: &personas
+      jobs:
+        lab_persona_clinician: {<<: *clinician, run_as: {service_principal_name: "${var.clinician_sp}"}}
+        lab_persona_pii_reader: {<<: *pii_reader, run_as: {service_principal_name: "${var.pii_reader_sp}"}}
+        lab_persona_outsider: {<<: *outsider, run_as: {service_principal_name: "${var.outsider_sp}"}}
+        lab_collect: *collect
+  customer:
+    resources: *personas
+  workspace:
+    resources:
+      jobs:
+        lab_persona_clinician: *clinician
+        lab_persona_pii_reader: *pii_reader
+        lab_persona_outsider: *outsider
+        lab_collect: *collect

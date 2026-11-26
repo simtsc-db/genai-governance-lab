@@ -1,0 +1,33 @@
+# DEMO mode only.
+targets:
+  demo:
+    resources: &lab_evidence
+      jobs:
+        lab_evidence:
+          name: ${var.resource_prefix}_evidence
+          description: "Run the day after the persona jobs. Correlates the latest demo suite (or evidence_run_id) with system.access.audit, system.ai_gateway.usage and the model service's inference table; PENDING while logs haven't arrived."
+          parameters:
+            - {name: suite_run_id, default: ""}
+            - {name: evidence_run_id, default: ""}
+            - {name: persona_apps, default: "${var.clinician_sp},${var.pii_reader_sp},${var.outsider_sp}"}
+            - {name: gateway_endpoint, default: "${var.gateway_endpoint}"}
+          tasks:
+            - task_key: collect
+              notebook_task:
+                notebook_path: ../../src/notebooks/40_collect.py
+                base_parameters:
+                  catalog: ${var.catalog}
+                  schema: ${resources.schemas.lab.name}
+                  resource_prefix: ${var.resource_prefix}
+            - task_key: evidence
+              depends_on: [{task_key: collect}]
+              notebook_task:
+                notebook_path: ../../src/notebooks/50_evidence.py
+                base_parameters:
+                  catalog: ${var.catalog}
+                  schema: ${resources.schemas.lab.name}
+                  resource_prefix: ${var.resource_prefix}
+  customer:
+    resources: *lab_evidence
+  workspace:
+    resources: *lab_evidence

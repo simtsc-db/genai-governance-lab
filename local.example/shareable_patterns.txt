@@ -1,0 +1,5 @@
+# Copy to local/shareable_patterns.txt (gitignored) and list literal internal names that must never be
+# shared: your CLI profile names, internal endpoint names, identity prefixes, workspace host fragments.
+# One extended regex per line. scripts/check_shareable.sh loads them in addition to its generic patterns.
+# my-internal-profile
+# my-internal-endpoint-name

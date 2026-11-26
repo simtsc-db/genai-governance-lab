@@ -1,0 +1,8 @@
+resources:
+  dashboards:
+    lab_results:
+      display_name: ${var.dashboard_name}
+      file_path: ../src/dashboards/results.lvdash.json
+      warehouse_id: ${var.warehouse_id}
+      dataset_catalog: ${var.catalog}
+      dataset_schema: ${resources.schemas.lab.name}

@@ -1,0 +1,32 @@
+resources:
+  jobs:
+    lab_audit:
+      name: ${var.resource_prefix}_audit
+      description: "AUDIT mode. Read-only checks of workspace settings plus non-destructive probes. Changes nothing except writing its own results to the lab schema."
+      # Job-level parameters: the bundle variables are the defaults; 00_run_lab passes its widget values at run time.
+      parameters:
+        - {name: suite_run_id, default: ""}
+        - {name: warehouse_id, default: "${var.warehouse_id}"}
+        - {name: ka_endpoint, default: "${var.ka_endpoint}"}
+        - {name: approved_builders, default: "${var.approved_builders}"}
+        - {name: cleartext_groups, default: "${var.cleartext_groups}"}
+        - {name: usage_lookback_days, default: "${var.usage_lookback_days}"}
+      tasks:
+        - task_key: settings
+          notebook_task:
+            notebook_path: ../src/notebooks/20_audit_settings.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${resources.schemas.lab.name}
+              expected_region: ${var.expected_region}
+              max_token_days: ${var.max_token_days}
+              mode: ${var.lab_mode}
+        - task_key: platform_probe
+          depends_on: [{task_key: settings}]
+          notebook_task:
+            notebook_path: ../src/notebooks/25_platform_probe.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${resources.schemas.lab.name}
+              ka_invoke: ${var.ka_invoke}
+              nric_tag_keys: ${var.nric_tag_keys}

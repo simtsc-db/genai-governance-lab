@@ -1,0 +1,37 @@
+# Realistic personal-name tokens that must never appear in tracked files (scripts/check_no_literal_pii.py).
+# One token per line, matched case-sensitively as whole words; multi-word tokens are allowed. Add your own in an
+# untracked local/pii_name_tokens.txt. Synthetic people in this lab are labels such as "Test Patient 017".
+Tan
+Lim
+Ng
+Ong
+Goh
+Chua
+Teo
+Koh
+Wong
+Chen
+Yeo
+Tay
+Chong
+Leong
+Muhammad
+Siti
+Nurul
+Aisyah
+Farhan
+Hafiz
+Faiz
+Rajesh
+Priya
+Kumar
+Nair
+Pillai
+Krishnan
+Wei Ming
+Hui Min
+Jia Hui
+Li Ting
+Mei Ling
+Xin Yi
+Jun Jie

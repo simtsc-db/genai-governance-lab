@@ -1,0 +1,16 @@
+# DEMO mode only. The persona service principals must read the bundle's notebooks to run as job
+# identities. CAN_VIEW applies to the bundle folder and its resources; it grants no data access.
+# The workspace target has no deploy-time group permissions: 00_run_lab gives each persona service principal
+# CAN_READ on the folder that holds the notebooks (Git folder or bundle files) at run time.
+targets:
+  demo:
+    # Appended to the top-level permissions (deployer CAN_MANAGE).
+    permissions: &persona_view
+      - level: CAN_VIEW
+        group_name: ${var.clinicians_group}
+      - level: CAN_VIEW
+        group_name: ${var.pii_readers_group}
+      - level: CAN_VIEW
+        group_name: ${var.outsiders_group}
+  customer:
+    permissions: *persona_view

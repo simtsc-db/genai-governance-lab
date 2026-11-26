@@ -1,0 +1,9 @@
+# Results schema (both modes). In audit mode it holds only test_results, suite_runs, test_catalogue
+# and lab_setup_status, and has no grants. Demo targets add the persona grants and the tools schema
+# (resources/demo/schemas.yml).
+resources:
+  schemas:
+    lab:
+      catalog_name: ${var.catalog}
+      name: ${var.schema}
+      comment: "GenAI governance lab sandbox. Synthetic data and lab results only. Safe to drop."

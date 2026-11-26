@@ -1,0 +1,13 @@
+# Untracked overlay for YOUR build / customer workspace. Copy to local/targets.yml (gitignored).
+# databricks.yml includes local/*.yml if present; nothing breaks when it is missing.
+targets:
+  demo:
+    workspace:
+      profile: <your-workspace-cli-profile>
+    variables:
+      # Existing endpoints the lab may reuse (empty = the dependent tests SKIP)
+      vs_endpoint: ""
+      agent_endpoint: ""
+      ka_endpoint: ""
+      # Service policy that should block the NRIC prompt (G-02), once attached (M-04)
+      expected_policy: ""

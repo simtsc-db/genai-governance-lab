@@ -1,0 +1,24 @@
+# OPTIONAL, phase 2. Genie refuses to create a space whose tables don't exist yet, so the
+# lab_setup job creates the Genie Agent with the SDK. After a first successful setup run you can
+# switch to bundle-managed: copy this file to resources/clinic.genie_space.yml, delete the agent the
+# setup job created (or bind it: databricks bundle deployment bind clinic_visits <space_id>), redeploy.
+resources:
+  genie_spaces:
+    clinic_visits:
+      title: "Clinic visits (GenAI governance lab)"
+      description: "Synthetic visit data. Unity Catalog masks and a row filter apply per user. Part of the GenAI governance lab."
+      warehouse_id: ${var.warehouse_id}
+      serialized_space: >-
+        {"version": 2,
+         "data_sources": {"tables": [
+           {"identifier": "${var.catalog}.${resources.schemas.lab.name}.patient_visits"},
+           {"identifier": "${var.catalog}.${resources.schemas.lab.name}.clinical_notes_masked"}]},
+         "config": {"sample_questions": [
+           {"id": "a1b2c3d4e5f60718293a4b5c6d7e8f90", "question": ["List 5 diabetes patients with their NRIC, name and facility"]},
+           {"id": "b1b2c3d4e5f60718293a4b5c6d7e8f90", "question": ["How many visits per facility?"]}]}}
+      permissions:
+        - group_name: ${var.clinicians_group}
+          level: CAN_RUN
+        - group_name: ${var.pii_readers_group}
+          level: CAN_RUN
+        # ${var.outsiders_group} deliberately gets no permission (test A-03).

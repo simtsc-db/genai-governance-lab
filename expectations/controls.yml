@@ -1,0 +1,92 @@
+# Test catalogue. One entry per test ID.
+# expected: per persona (clinician / pii_reader / outsider) or "admin" for audit-mode tests.
+# deck_layer matches the seven layers of the companion deck.
+# Status values written to test_results: PASS, FAIL, SKIP (prerequisite missing, or the error didn't name
+# the control under test; reason recorded), MANUAL (needs a UI or account-console step; see
+# docs/manual-steps.md), INFO (recorded, no verdict), PENDING (evidence logs not in yet).
+# The dashboard also shows MISSING for an expected test/persona with no row in the latest suite run.
+# Optional keys: personas (when expected doesn't list them), modes (default: admin tests run in audit
+# and demo, persona tests in demo), source: evidence (written by lab_evidence, next day).
+# Automated MCP tests are T-01/T-02; M-xx IDs are manual steps (docs/manual-steps.md).
+
+P-01: {layer: 1, title: "Workspace metastore region recorded", expected: {admin: "region is the intended one, e.g. ap-southeast-1"}, doc: "https://docs.databricks.com/aws/en/resources/databricks-geos"}
+P-02: {layer: 1, title: "IP access lists enabled with at least one allow list", expected: {admin: "enabled, >=1 list"}, doc: "https://docs.databricks.com/aws/en/security/network/front-end/ip-access-list"}
+P-03: {layer: 1, title: "Personal access token settings", expected: {admin: "tokens disabled, or a maximum lifetime of at most max_token_days (default 90)"}, doc: "https://docs.databricks.com/aws/en/dev-tools/auth/scope-modifiers"}
+P-04: {layer: 1, title: "Serverless egress network policy", expected: {admin: "restricted policy attached (account console)"}, doc: "https://docs.databricks.com/aws/en/security/network/serverless-network-security/network-policies"}
+P-05: {layer: 1, title: "Partner-powered AI setting (workspace) recorded", expected: {admin: "value recorded and agreed with security; enforced at account level if required"}, doc: "https://docs.databricks.com/aws/en/databricks-ai/partner-powered"}
+P-06: {layer: 1, title: "Enforce data processing within workspace Geography", expected: {admin: "on for workspaces that must stay in-Geo"}, doc: "https://docs.databricks.com/aws/en/resources/designated-services"}
+P-07: {layer: 1, title: "Negative test: a cross-Geo-only feature is refused", expected: {admin: "ai_mask 2.0 refused with the Geography / cross-Geo reason when enforcement is on in a region that needs cross-Geo for it"}, doc: "https://docs.databricks.com/aws/en/resources/feature-region-support"}
+P-08: {layer: 1, title: "Compliance Security Profile state", expected: {admin: "recorded; decision on CSP for patient-data workspaces documented"}, doc: "https://docs.databricks.com/aws/en/security/privacy/security-profile"}
+
+D-01: {layer: 2, title: "Column mask hides NRIC and name (exact seeded fixture values)", expected: {clinician: "masked", pii_reader: "cleartext", outsider: "masked"}, doc: "https://docs.databricks.com/aws/en/data-governance/unity-catalog/filters-and-masks/"}
+D-02: {layer: 2, title: "Row filter limits facilities (exact facility set)", expected: {clinician: "1 facility", pii_reader: "4 facilities", outsider: "1 facility"}, doc: "https://docs.databricks.com/aws/en/data-governance/unity-catalog/filters-and-masks/"}
+D-03: {layer: 2, title: "ABAC policy masks every column with the PII tag (class.phone_number), with no per-table mask", expected: {clinician: "masked", pii_reader: "cleartext", outsider: "masked"}, doc: "https://docs.databricks.com/aws/en/data-governance/unity-catalog/abac/policies"}
+D-04: {layer: 2, title: "Raw notes table is not readable; only the ai_mask-ed copy is", expected: {clinician: "denied on raw, allowed on masked", pii_reader: "denied on raw, allowed on masked", outsider: "denied on raw, allowed on masked"}, doc: "https://docs.databricks.com/aws/en/data-governance/unity-catalog/manage-privileges/"}
+D-05: {layer: 2, title: "Data Classification availability", expected: {admin: "not available when in-Geo enforcement is on in the Asia Geo (needs cross-Geo processing per Designated Services; MANUAL check)"}, doc: "https://docs.databricks.com/aws/en/resources/designated-services"}
+D-08: {layer: 2, title: "Every column Data Classification tags as a Singapore NRIC / FIN / work permit number is covered by an ABAC mask policy", expected: {admin: "PASS when every tagged column is covered; INFO when classification isn't enabled or no tags exist"}, doc: "https://docs.databricks.com/aws/en/data-governance/unity-catalog/data-classification"}
+D-06: {layer: 2, title: "ai_mask 1.0 masks names, IDs and phone numbers in free text", expected: {admin: "no NRIC pattern or phone number left in output"}, doc: "https://docs.databricks.com/aws/en/sql/language-manual/functions/ai_mask"}
+D-07: {layer: 2, title: "ai_mask 2.0 (Beta) availability", expected: {admin: "SKIP on CSP workspaces; refused where the region needs cross-Geo and enforcement is on; otherwise masks with no PII left"}, doc: "https://docs.databricks.com/aws/en/sql/language-manual/functions/ai_mask"}
+
+A-01: {layer: 4, title: "Genie answer applies the column mask", expected: {clinician: "masked", pii_reader: "cleartext", outsider: "denied"}, doc: "https://docs.databricks.com/aws/en/genie-agents/set-up"}
+A-02: {layer: 4, title: "Genie answer applies the row filter", expected: {clinician: "1 facility", pii_reader: "4 facilities", outsider: "denied"}, doc: "https://docs.databricks.com/aws/en/genie-agents/set-up"}
+A-03: {layer: 4, title: "No CAN RUN on the Genie Agent means no answer", expected: {clinician: "allowed", pii_reader: "allowed", outsider: "denied"}, doc: "https://docs.databricks.com/aws/en/genie-agents/set-up"}
+A-04: {layer: 4, title: "Genie only sees the masked notes table (needs a non-empty answer)", expected: {clinician: "no cleartext NRIC in answer", pii_reader: "no cleartext NRIC in answer", outsider: "denied"}, doc: "https://docs.databricks.com/aws/en/genie-agents/set-up"}
+A-05: {layer: 4, title: "Agent mode honours the same masks (MANUAL, UI)", expected: {clinician: "masked", pii_reader: "cleartext", outsider: "denied"}, doc: "https://docs.databricks.com/aws/en/genie-agents/"}
+
+G-01: {layer: 3, title: "Model call without EXECUTE on the model service is denied", expected: {clinician: "allowed", pii_reader: "allowed", outsider: "denied"}, doc: "https://docs.databricks.com/aws/en/ai-gateway/govern-access-to-models-with-grant-policies"}
+# G-02: PASS needs ONE decision record that names expected_policy with an ENFORCED deny (not log/monitor) and no
+# successful completion in the response; any other block is INFO.
+G-02: {layer: 3, title: "The intended service policy blocks a prompt containing an NRIC", expected: {clinician: "blocked", pii_reader: "blocked", outsider: "denied"}, doc: "https://docs.databricks.com/aws/en/data-governance/unity-catalog/service-policies/"}
+
+C-01: {layer: 6, title: "Warehouse statement timeout set", expected: {admin: "statement_timeout > 0 on the Genie warehouse (MANUAL if the API returns no statement_timeout field)"}, doc: "https://docs.databricks.com/aws/en/compute/sql-warehouse/warehouse-behavior#statement-timeout"}
+C-02: {layer: 6, title: "Budgets with per-user thresholds exist (account)", expected: {admin: "at least one Unity Gateway / Genie budget"}, doc: "https://docs.databricks.com/aws/en/ai-gateway/budgets"}
+
+O-01: {layer: 7, source: evidence, modes: [demo], title: "Genie events of the persona runs are in system.access.audit", expected: {admin: "genieStartConversationMessage succeeded on the lab agent for clinician and PII reader, not for the outsider"}, doc: "https://docs.databricks.com/aws/en/admin/system-tables/audit-logs"}
+O-02: {layer: 7, source: evidence, modes: [demo], title: "Gateway calls are in system.ai_gateway.usage", expected: {admin: "usage rows on lab_chat for clinician and PII reader in the suite window"}, doc: "https://docs.databricks.com/aws/en/ai-gateway/usage-tracking"}
+O-03: {layer: 7, source: evidence, modes: [demo], title: "Denied Genie access is visible in the audit log", expected: {admin: "the outsider's genieStartConversationMessage on the lab agent recorded with HTTP 403/404"}, doc: "https://docs.databricks.com/aws/en/genie-agents/audits-alerts"}
+
+# --- GenAI surfaces beyond Genie ---------------------------------------------------------
+G-03: {layer: 3, title: "Per-group rate limit on the model service (2 requests/min for clinicians; 3 calls after a reset)", expected: {clinician: "2 allowed then rate_limited", pii_reader: "allowed", outsider: "denied"}, doc: "https://docs.databricks.com/aws/en/ai-gateway/rate-limits"}
+G-04: {layer: 7, source: evidence, modes: [demo], title: "Model service inference table logs each persona's requests", expected: {admin: "rows of the G-01 request for clinician and PII reader, none from the outsider"}, doc: "https://docs.databricks.com/aws/en/ai-gateway/inference-tables"}
+F-01: {layer: 3, title: "Who can call AI Functions (EXECUTE on system.ai)", personas: [clinician, pii_reader, outsider], expected: {clinician: "recorded (INFO)", pii_reader: "recorded (INFO)", outsider: "recorded (INFO)"}, doc: "https://docs.databricks.com/aws/en/large-language-models/ai-functions-uc-permissions"}
+F-02: {layer: 3, title: "AI Functions inherit UC masks: ai_query only receives what the caller can read (values sent must be the masked fixtures and echoed exactly; cleartext sent = FAIL; otherwise INFO)", expected: {clinician: "no cleartext NRIC reached the model", pii_reader: "cleartext NRIC reached the model", outsider: "no cleartext NRIC reached the model"}, doc: "https://docs.databricks.com/aws/en/data-governance/unity-catalog/filters-and-masks/"}
+F-03: {layer: 3, title: "ai_query through a custom Unity Gateway model service (docs: only Databricks-provided models are supported yet)", expected: {clinician: "not supported for this route", pii_reader: "not supported for this route", outsider: "not supported for this route"}, doc: "https://docs.databricks.com/aws/en/ai-gateway/query-model-services"}
+V-01: {layer: 5, title: "Vector Search index access needs SELECT on the index", expected: {clinician: "allowed", pii_reader: "allowed", outsider: "denied"}, doc: "https://docs.databricks.com/aws/en/ai-search/ai-search"}
+V-02: {layer: 5, title: "Retrieval returns only masked text (index built from the masked notes; needs at least one hit)", expected: {clinician: "no cleartext PII in results", pii_reader: "no cleartext PII in results", outsider: "denied"}, doc: "https://docs.databricks.com/aws/en/ai-search/ai-search"}
+T-01: {layer: 5, title: "Agent tool over MCP: only groups with EXECUTE on the UC function can call it (exact tool and value; an unlisted tool is called directly, else INFO)", expected: {clinician: "allowed", pii_reader: "denied", outsider: "denied"}, doc: "https://docs.databricks.com/aws/en/agents/mcp-tools/uc-functions"}
+T-02: {layer: 5, title: "DBSQL MCP runs SQL as the caller on the selected warehouse, so masks apply (seeded fixture rows)", expected: {clinician: "masked", pii_reader: "cleartext", outsider: "masked"}, doc: "https://docs.databricks.com/aws/en/agents/mcp-tools/databricks-sql"}
+S-01: {layer: 5, title: "Agent / serving endpoint needs CAN QUERY", expected: {clinician: "allowed", pii_reader: "denied", outsider: "denied"}, doc: "https://docs.databricks.com/aws/en/machine-learning/model-serving/manage-serving-endpoints"}
+X-01: {layer: 7, title: "MLflow traces are only readable with experiment permission (the seeded trace is returned)", expected: {clinician: "denied", pii_reader: "allowed", outsider: "denied"}, doc: "https://docs.databricks.com/aws/en/mlflow3/genai/tracing/"}
+R-01: {layer: 5, title: "Knowledge Assistant configuration (exists, state, who can query); invocation is opt-in", expected: {admin: "recorded; needs cross-Geo processing in the Asia Geo per Designated Services"}, doc: "https://docs.databricks.com/aws/en/resources/designated-services"}
+B-01: {layer: 3, title: "Creating a Unity Gateway model service needs CREATE SERVICE on the schema", expected: {clinician: "allowed", pii_reader: "denied", outsider: "denied"}, doc: "https://docs.databricks.com/aws/en/ai-gateway/model-services"}
+# B-02 evidence: the docs list CREATE SERVICE on the schema (+ USE CATALOG/USE SCHEMA) as the only privilege, so an
+# inline-key custom provider can be created with CREATE SERVICE alone (no connection, no secret); the probe confirms it.
+B-02: {layer: 3, title: "Adding an external model provider (BYOK) needs CREATE SERVICE on the schema", expected: {clinician: "allowed", pii_reader: "denied", outsider: "denied"}, doc: "https://docs.databricks.com/aws/en/ai-gateway/model-provider-services"}
+B-03: {layer: 5, title: "Creating a connection (needed to register an external MCP server) needs CREATE CONNECTION", expected: {clinician: "denied", pii_reader: "denied", outsider: "denied"}, doc: "https://docs.databricks.com/aws/en/ai-gateway/register-mcp-service"}
+# Denials (all persona tests): the error's denial clause must name the privilege under test AND the exact securable
+# (e.g. "does not have SELECT on Table <target>", the Genie space ID, the full 3-part service name); else SKIP.
+# B-04: a generic 403 that names neither USE CONNECTION nor the connection is SKIP (missing privilege not identifiable).
+B-04: {layer: 5, title: "Registering an MCP service needs CREATE SERVICE and USE CONNECTION", expected: {clinician: "denied", pii_reader: "denied", outsider: "denied"}, doc: "https://docs.databricks.com/aws/en/ai-gateway/govern-mcp-service"}
+# B-04b: the allowed path. Clinicians hold CREATE SERVICE on the tools schema and USE CONNECTION on the builders' dummy
+# connection only. Creation alone is the evidence (the probe never lists tools, so no traffic to the placeholder host).
+# B-04b allowed is noted in B-04's evidence, but B-04's verdict is never inferred from it.
+B-04b: {layer: 5, title: "An approved builder can register an MCP service on a connection it was granted", expected: {clinician: "allowed", pii_reader: "denied", outsider: "denied"}, doc: "https://docs.databricks.com/aws/en/ai-gateway/register-mcp-service"}
+# B-05: expected is the TARGET control (denied). It holds only with the workspace setting Enforce Unity Gateway on
+# (B-08): creation then fails with "Creating external model endpoint '<name>' is disabled for this workspace. Please use
+# Unity Gateway." PASS needs that clause naming the probe's exact endpoint; a generic 403 is SKIP. With the setting off,
+# any persona with workspace access can create one: FAIL, a finding (gaps.md gap 22). Existing endpoints stay queryable.
+B-05: {layer: 5, title: "Creating a classic serving endpoint with an external model (route outside Unity Gateway)", expected: {clinician: "denied", pii_reader: "denied", outsider: "denied"}, doc: "https://docs.databricks.com/aws/en/ai-gateway/migrate-to-unity-gateway"}
+B-06: {layer: 3, title: "No CREATE SERVICE, CREATE CONNECTION or ALL PRIVILEGES outside the approved builders", expected: {admin: "only approved_builders hold these privileges (MANUAL if the audit identity is not a metastore admin)"}, doc: "https://docs.databricks.com/aws/en/ai-gateway/ai-governance/"}
+B-07: {layer: 3, title: "Default access to Databricks-provided models and MCPs (system.ai) recorded", expected: {admin: "recorded; restrict if not every user may use every built-in model and MCP"}, doc: "https://docs.databricks.com/aws/en/ai-gateway/govern-mcp-service"}
+# B-08: workspace settings v2 key enforce_ai_gateway_v3_only (undocumented; discovered from workspace settings metadata; best effort; may change without notice; the UI is authoritative). PASS
+# does not cover endpoints that already exist: they stay queryable. FAIL when readable and off (B-05 stays open). MANUAL when the
+# setting isn't offered (docs: it appears in workspaces with legacy AI Gateway endpoints) or can't be read (needs admin).
+B-08: {layer: 3, title: "Enforce Unity Gateway is on (databricks-* pay-per-token endpoints disabled; no NEW external-model or provisioned-throughput serving endpoints outside Unity Gateway; existing ones stay queryable)", expected: {admin: "on (MANUAL if not offered or not readable: Settings > Advanced); then inventory existing external-model / provisioned-throughput endpoints (system.serving.served_entities or the serving endpoint list)"}, doc: "https://docs.databricks.com/aws/en/ai-gateway/migrate-to-unity-gateway"}
+# B-09: read-only. The verdict answers only "does an existing legacy route exist right now?" from the endpoint inventory:
+# every listed serving endpoint read in full (no cap, bounded retries). FAIL: any external-model or provisioned-throughput
+# endpoint (any caller; they stay queryable with Enforce Unity Gateway on). MANUAL: caller not a workspace admin (the
+# list API is permission-filtered) or classification incomplete. INFO: other AI endpoints. PASS: admin, complete, none.
+# system.serving usage over usage_lookback_days is supplementary evidence only, never part of the verdict: traffic is
+# shown only for endpoints with usage tracking on during the window (configure-ai-gateway-endpoints), so absence is not
+# proof. Lab-owned probe endpoints are labelled, never excluded.
+B-09: {layer: 3, title: "Legacy AI endpoint inventory: no external-model, provisioned-throughput or other AI serving endpoints exist right now", expected: {admin: "none, as a workspace admin with every endpoint classified (PASS); INFO lists other AI endpoints to migrate; MANUAL if non-admin or classification incomplete. Usage history is supplementary"}, doc: "https://docs.databricks.com/aws/en/ai-gateway/migrate-to-unity-gateway", doc_also: "https://docs.databricks.com/aws/en/ai-gateway/configure-ai-gateway-endpoints"}

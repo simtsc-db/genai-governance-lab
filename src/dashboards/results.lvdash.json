@@ -1,0 +1,500 @@
+{
+  "datasets": [
+    {
+      "name": "latest",
+      "displayName": "Latest suite run: result per test and persona (MISSING / PENDING when absent)",
+      "queryLines": [
+        "WITH suite AS (\n",
+        "  SELECT run_id, mode, started_at FROM suite_runs ORDER BY started_at DESC LIMIT 1\n",
+        "), expected_rows AS (\n",
+        "  SELECT c.test_id, c.persona, c.layer, c.title, c.expected, c.source\n",
+        "  FROM test_catalogue c CROSS JOIN suite s\n",
+        "  WHERE array_contains(split(c.modes, ','), s.mode)\n",
+        "), results AS (\n",
+        "  SELECT r.* FROM test_results r JOIN suite s ON r.run_id = s.run_id\n",
+        "  QUALIFY row_number() OVER (PARTITION BY r.test_id, r.persona ORDER BY r.ts DESC) = 1\n",
+        "), merged AS (\n",
+        "  SELECT coalesce(r.test_id, e.test_id) AS test_id, coalesce(r.persona, e.persona) AS persona,\n",
+        "         coalesce(r.layer, e.layer) AS layer, coalesce(r.title, e.title) AS title,\n",
+        "         coalesce(r.expected, e.expected) AS expected,\n",
+        "         coalesce(r.status, CASE WHEN e.source = 'evidence' THEN 'PENDING' ELSE 'MISSING' END) AS status,\n",
+        "         coalesce(r.observed, CASE WHEN e.source = 'evidence' THEN 'evidence job not run for this suite yet (lab_evidence, next day)'\n",
+        "                                   ELSE 'no result in the latest suite run (job not run, or it failed before recording)' END) AS observed,\n",
+        "         r.doc_url, r.ts, (SELECT run_id FROM suite) AS suite_run_id, (SELECT mode FROM suite) AS suite_mode\n",
+        "  FROM expected_rows e FULL OUTER JOIN results r ON e.test_id = r.test_id AND e.persona = r.persona\n",
+        ")\n",
+        "SELECT test_id, layer,\n",
+        "  CASE layer WHEN 1 THEN '1 Platform' WHEN 2 THEN '2 Data' WHEN 3 THEN '3 Models & Gateway' WHEN 4 THEN '4 Genie'\n",
+        "             WHEN 5 THEN '5 Agents, MCP & Search' WHEN 6 THEN '6 Cost' WHEN 7 THEN '7 Audit' ELSE 'other' END AS layer_name,\n",
+        "  CASE WHEN test_id IN ('D-06','D-07') THEN 'AI Functions'\n",
+        "       ELSE CASE left(test_id, 1) WHEN 'A' THEN 'Genie' WHEN 'D' THEN 'Unity Catalog data' WHEN 'F' THEN 'AI Functions'\n",
+        "            WHEN 'G' THEN 'Unity Gateway' WHEN 'B' THEN 'Who can build AI services' WHEN 'V' THEN 'Vector Search' WHEN 'T' THEN 'MCP & agent tools'\n",
+        "            WHEN 'S' THEN 'Model serving & agents' WHEN 'X' THEN 'MLflow traces' WHEN 'R' THEN 'Agent Bricks'\n",
+        "            WHEN 'P' THEN 'Platform' WHEN 'C' THEN 'Cost' WHEN 'O' THEN 'Audit' ELSE 'other' END END AS feature,\n",
+        "  title, persona, status, expected, observed, doc_url, ts, suite_run_id, suite_mode\n",
+        "FROM merged"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "results",
+      "displayName": "GenAI governance lab results",
+      "layout": [
+        {
+          "widget": {
+            "name": "title",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## GenAI governance lab"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "subtitle",
+            "multilineTextboxSpec": {
+              "lines": [
+                "Latest **suite run** only (shared run ID across setup, personas and audit). **PASS** = control behaved as expected \u00b7 **FAIL** = it didn't \u00b7 **SKIP** = prerequisite missing or the error didn't name the control under test (reason in Observed) \u00b7 **MANUAL** = see docs/manual-steps.md \u00b7 **INFO** = recorded, no verdict \u00b7 **PENDING** = evidence job or logs not in yet \u00b7 **MISSING** = expected for this suite but no result. Click a bar or use the filters to narrow the table."
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 1,
+            "width": 6,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "filter_status",
+            "queries": [
+              {
+                "name": "latest_status",
+                "query": {
+                  "datasetName": "latest",
+                  "fields": [
+                    {
+                      "name": "status",
+                      "expression": "`status`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "status",
+                    "displayName": "Status",
+                    "queryName": "latest_status"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Status"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "filter_persona",
+            "queries": [
+              {
+                "name": "latest_persona",
+                "query": {
+                  "datasetName": "latest",
+                  "fields": [
+                    {
+                      "name": "persona",
+                      "expression": "`persona`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "persona",
+                    "displayName": "Persona",
+                    "queryName": "latest_persona"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Persona"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 2,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "filter_feature",
+            "queries": [
+              {
+                "name": "latest_feature",
+                "query": {
+                  "datasetName": "latest",
+                  "fields": [
+                    {
+                      "name": "feature",
+                      "expression": "`feature`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "feature",
+                    "displayName": "Feature",
+                    "queryName": "latest_feature"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Feature"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 2,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "status_bar",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "latest",
+                  "fields": [
+                    {
+                      "name": "status",
+                      "expression": "`status`"
+                    },
+                    {
+                      "name": "count(test_id)",
+                      "expression": "COUNT(`test_id`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "status",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Status"
+                },
+                "y": {
+                  "fieldName": "count(test_id)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Tests"
+                },
+                "color": {
+                  "fieldName": "status",
+                  "scale": {
+                    "type": "categorical",
+                    "mappings": [
+                      {
+                        "value": "PASS",
+                        "color": "#00A972"
+                      },
+                      {
+                        "value": "FAIL",
+                        "color": "#FF3621"
+                      },
+                      {
+                        "value": "SKIP",
+                        "color": "#919191"
+                      },
+                      {
+                        "value": "MANUAL",
+                        "color": "#FFAB00"
+                      },
+                      {
+                        "value": "INFO",
+                        "color": "#2272B4"
+                      },
+                      {
+                        "value": "PENDING",
+                        "color": "#8E7CC3"
+                      },
+                      {
+                        "value": "MISSING",
+                        "color": "#1B3139"
+                      }
+                    ]
+                  },
+                  "displayName": "Status"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Tests by status (click a bar to filter)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 4,
+            "width": 2,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "feature_bar",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "latest",
+                  "fields": [
+                    {
+                      "name": "feature",
+                      "expression": "`feature`"
+                    },
+                    {
+                      "name": "status",
+                      "expression": "`status`"
+                    },
+                    {
+                      "name": "count(test_id)",
+                      "expression": "COUNT(`test_id`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "feature",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Feature"
+                },
+                "y": {
+                  "fieldName": "count(test_id)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Tests"
+                },
+                "color": {
+                  "fieldName": "status",
+                  "scale": {
+                    "type": "categorical",
+                    "mappings": [
+                      {
+                        "value": "PASS",
+                        "color": "#00A972"
+                      },
+                      {
+                        "value": "FAIL",
+                        "color": "#FF3621"
+                      },
+                      {
+                        "value": "SKIP",
+                        "color": "#919191"
+                      },
+                      {
+                        "value": "MANUAL",
+                        "color": "#FFAB00"
+                      },
+                      {
+                        "value": "INFO",
+                        "color": "#2272B4"
+                      },
+                      {
+                        "value": "PENDING",
+                        "color": "#8E7CC3"
+                      },
+                      {
+                        "value": "MISSING",
+                        "color": "#1B3139"
+                      }
+                    ]
+                  },
+                  "displayName": "Status"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Results by GenAI feature"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 11,
+            "width": 2,
+            "height": 9
+          }
+        },
+        {
+          "widget": {
+            "name": "results_table",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "latest",
+                  "fields": [
+                    {
+                      "name": "test_id",
+                      "expression": "`test_id`"
+                    },
+                    {
+                      "name": "feature",
+                      "expression": "`feature`"
+                    },
+                    {
+                      "name": "persona",
+                      "expression": "`persona`"
+                    },
+                    {
+                      "name": "status",
+                      "expression": "`status`"
+                    },
+                    {
+                      "name": "title",
+                      "expression": "`title`"
+                    },
+                    {
+                      "name": "expected",
+                      "expression": "`expected`"
+                    },
+                    {
+                      "name": "observed",
+                      "expression": "`observed`"
+                    },
+                    {
+                      "name": "doc_url",
+                      "expression": "`doc_url`"
+                    },
+                    {
+                      "name": "suite_run_id",
+                      "expression": "`suite_run_id`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "test_id",
+                    "displayName": "Test"
+                  },
+                  {
+                    "fieldName": "feature",
+                    "displayName": "Feature"
+                  },
+                  {
+                    "fieldName": "persona",
+                    "displayName": "Persona"
+                  },
+                  {
+                    "fieldName": "status",
+                    "displayName": "Status"
+                  },
+                  {
+                    "fieldName": "title",
+                    "displayName": "Control"
+                  },
+                  {
+                    "fieldName": "expected",
+                    "displayName": "Expected"
+                  },
+                  {
+                    "fieldName": "observed",
+                    "displayName": "Observed"
+                  },
+                  {
+                    "fieldName": "doc_url",
+                    "displayName": "Docs"
+                  },
+                  {
+                    "fieldName": "suite_run_id",
+                    "displayName": "Suite run"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Results"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 4,
+            "width": 4,
+            "height": 16
+          }
+        }
+      ]
+    }
+  ]
+}

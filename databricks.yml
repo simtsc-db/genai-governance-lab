@@ -1,0 +1,164 @@
+# GenAI governance lab
+# Hands-on lab that accompanies the companion deck on governing GenAI and Genie on Databricks.
+# Two modes:
+#   audit  - read-only checks of workspace settings (target customer_audit: deploys only the audit job,
+#            the results schema and the dashboard)
+#   demo   - deploys a sandbox (synthetic data, UC policies, Genie Agent, <prefix>_chat, persona jobs)
+# Two ways to drive it (same notebooks, same validation):
+#   CLI        scripts/bootstrap_personas.sh, scripts/run_demo.sh, scripts/teardown.sh (targets demo / customer / customer_audit)
+#   Workspace  Git folder -> Deploy the 'workspace' target from the bundle UI -> src/notebooks/00_run_lab (docs/workspace-setup.md)
+#
+# Workspace-specific settings (CLI profile, existing endpoints) go in an untracked overlay:
+# copy local.example/targets.yml to local/targets.yml. Without it every target still validates.
+
+bundle:
+  name: genie-governance-lab
+
+include:
+  - resources/*.yml          # audit mode: results schema, lab_audit, dashboard
+  - resources/demo/*.yml     # demo mode only: attached to the demo and customer targets
+  - local/*.yml              # optional, untracked overlay (gitignored)
+
+# The deployer keeps CAN_MANAGE (strict validation requires it to be explicit). Demo targets add
+# CAN_VIEW for the persona groups (see resources/demo/permissions.yml).
+permissions:
+  - level: CAN_MANAGE
+    user_name: ${workspace.current_user.userName}
+
+variables:
+  catalog:
+    description: Existing catalog for the sandbox schema. The deployer needs CREATE SCHEMA on it.
+    default: main
+  schema:
+    description: Sandbox schema created and destroyed by this bundle.
+    default: genie_governance_lab
+  resource_prefix:
+    description: >-
+      Prefix for every lab object that the schema alone doesn't scope (job names, the model service <prefix>_chat,
+      connections, ABAC policies, functions, the index, the experiment, probe endpoints). 2-16 lowercase letters/digits.
+      The default "lab" keeps the historical names (lab_setup, lab_chat, facility_capacity, glab-probe-..., ...).
+    default: lab
+  dashboard_name:
+    description: Display name of the results dashboard. The workspace target derives it from resource_prefix.
+    default: "GenAI governance lab – results"
+  persona_prefix:
+    description: Prefix of the persona service principals (<prefix>-clinician, ...) and account groups (<prefix>_clinicians, ...).
+    default: lab
+  warehouse_id:
+    description: Serverless SQL warehouse used by the Genie Agent, the dashboard and the DBSQL MCP test.
+  lab_mode:
+    description: audit or demo. Decides which tests the dashboard expects for a suite run.
+    default: audit
+  # Persona service principals (application IDs). scripts/bootstrap_personas.sh creates them
+  # and writes .lab.env; scripts/run_demo.sh passes them in.
+  clinician_sp:
+    description: Application ID of the lab-clinician service principal.
+    default: ""
+  pii_reader_sp:
+    description: Application ID of the lab-pii-reader service principal.
+    default: ""
+  outsider_sp:
+    description: Application ID of the lab-outsider service principal.
+    default: ""
+  # Account groups. Must be ACCOUNT groups (is_account_group_member and ABAC policies use them).
+  clinicians_group:
+    default: ${var.persona_prefix}_clinicians
+  pii_readers_group:
+    default: ${var.persona_prefix}_pii_readers
+  all_facilities_group:
+    default: ${var.persona_prefix}_all_facilities
+  outsiders_group:
+    default: ${var.persona_prefix}_outsiders
+  pii_tag_key:
+    description: >-
+      Governed tag for the ABAC test (D-03). Default is the system classification tag
+      class.phone_number (the same tag Data Classification applies), so nothing new is created.
+      Set your own governed tag key (and pii_tag_value) to test a custom taxonomy.
+    default: class.phone_number
+  pii_tag_value:
+    description: Tag value for a custom governed tag. Leave empty for key-only tags such as class.*.
+    default: ""
+  nric_tag_keys:
+    description: Data Classification tags for Singapore identifiers, matched by the ABAC policy lab_mask_sg_identifiers and checked by D-08.
+    default: class.sg_nric,class.sg_fin,class.sg_work_permit_number
+  cleartext_groups:
+    description: Comma-separated groups an ABAC mask may exempt (D-08 counts a policy as coverage only if it applies to account users EXCEPT at most these).
+    default: ""
+  approved_builders:
+    description: Comma-separated principals allowed to hold CREATE SERVICE / CREATE CONNECTION / ALL PRIVILEGES (B-06 flags everyone else).
+    default: ""
+  expected_region:
+    description: Metastore region the audit expects (P-01).
+    default: ap-southeast-1
+  max_token_days:
+    description: Highest acceptable PAT maximum lifetime in days (P-03).
+    default: "90"
+  # GenAI surfaces beyond Genie
+  chat_model:
+    description: Pay-per-token model behind the lab's Unity Gateway model service <prefix>_chat (and the B-01 probe), as models/system.ai.<registered model name>, e.g. models/system.ai.databricks-claude-sonnet-4-6 (must work in your Geo).
+    default: models/system.ai.databricks-claude-sonnet-4-6
+  fm_endpoint:
+    description: Foundation model endpoint the F-02 ai_query test calls.
+    default: databricks-claude-sonnet-4-6
+  embedding_model:
+    description: Embedding endpoint for the lab's vector search index.
+    default: databricks-qwen3-embedding-0-6b
+  vs_endpoint:
+    description: Existing vector search endpoint for the lab index (V-01, V-02). Empty = SKIP.
+    default: ""
+  agent_endpoint:
+    description: Existing agent / model serving endpoint for the CAN_QUERY test (S-01). Empty = SKIP.
+    default: ""
+  ka_endpoint:
+    description: Existing Knowledge Assistant endpoint for the configuration check (R-01). Empty = SKIP.
+    default: ""
+  ka_invoke:
+    description: "true = R-01 also sends one synthetic question, only to an endpoint tagged lab_synthetic=true. Stores HTTP status and correlation headers only."
+    default: "false"
+  usage_lookback_days:
+    description: "B-09: days of system.serving usage to scan for databricks-* pay-per-token and legacy endpoint traffic (1-365)."
+    default: "30"
+  gateway_endpoint:
+    description: Unity Gateway model service used by the gateway tests, as a three-part name catalog.schema.service. Default is the lab's own service.
+    default: ""
+  expected_policy:
+    description: Name of the service policy that should block the NRIC prompt (G-02). G-02 passes only for an enforced deny from this policy with no completion returned; empty = the intended policy can't be confirmed, so a block is recorded as INFO.
+    default: ""
+
+targets:
+  # Your test workspace, DEMO mode. Point it at a workspace with local/targets.yml
+  # (workspace.profile) or with -p <profile>.
+  demo:
+    default: true
+    variables:
+      lab_mode: demo
+      approved_builders: ${var.clinicians_group}
+      cleartext_groups: ${var.pii_readers_group}
+
+  # Customer workspace, DEMO mode (needs the personas; see scripts/bootstrap_personas.sh).
+  # Create a CLI profile named "customer" or override: databricks bundle deploy -t customer -p <profile>
+  customer:
+    workspace:
+      profile: customer
+    variables:
+      lab_mode: demo
+      approved_builders: ${var.clinicians_group}
+      cleartext_groups: ${var.pii_readers_group}
+
+  # Workspace-native (no CLI): clone the repo as a Git folder, Deploy this target from the bundle UI, then drive
+  # everything from src/notebooks/00_run_lab (docs/workspace-setup.md). Nothing here references an identity: the
+  # personas don't exist at deploy time. 00_run_lab creates them and binds run_as, USE SCHEMA, the model service
+  # grants / rate limit and notebook read access at run time. Set catalog, schema, resource_prefix, persona_prefix and
+  # warehouse_id for your deployment here or in an untracked local/targets.yml in the Git folder.
+  workspace:
+    variables:
+      lab_mode: demo
+      dashboard_name: "GenAI governance lab – results (${var.resource_prefix})"
+      approved_builders: ${var.clinicians_group}
+      cleartext_groups: ${var.pii_readers_group}
+
+  # Customer workspace, AUDIT mode only. Deploys the results schema (no grants), lab_audit and the
+  # dashboard. No personas, persona jobs, model service, tools schema, grants or ACLs.
+  customer_audit:
+    workspace:
+      profile: customer

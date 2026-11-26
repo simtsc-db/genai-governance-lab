@@ -1,0 +1,23 @@
+# DEMO mode only.
+targets:
+  demo:
+    resources: &lab_teardown
+      jobs:
+        lab_teardown:
+          name: ${var.resource_prefix}_teardown
+          description: "Deletes only what lab_manifest records (Genie Agent, index, experiment, connection, policies, functions, tables, added grants and ACL entries, probe objects). dry_run=true lists the plan. Fails if any deletion fails. Export results first (scripts/export_results.sh or 00_run_lab)."
+          parameters:
+            - {name: dry_run, default: "true"}
+            - {name: lab_groups, default: "${var.clinicians_group},${var.pii_readers_group},${var.outsiders_group}"}
+          tasks:
+            - task_key: teardown
+              notebook_task:
+                notebook_path: ../../src/notebooks/99_teardown.py
+                base_parameters:
+                  catalog: ${var.catalog}
+                  schema: ${resources.schemas.lab.name}
+                  resource_prefix: ${var.resource_prefix}
+  customer:
+    resources: *lab_teardown
+  workspace:
+    resources: *lab_teardown
