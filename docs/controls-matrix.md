@@ -1,17 +1,21 @@
 # GenAI governance lab: controls matrix
 
-Every control in the companion deck, its release status (AWS, as of **24 Nov 2026**), and how this lab covers it.
+Controls from the companion deck, their release status (AWS, as of **24 Nov 2026**), and how
+this lab covers them. Beta and Preview statuses can drift; the linked documentation is the
+reference for current availability.
 
-* **Test ID** (e.g. `D-01`): automated, result in `test_results`.
-* **M-xx**: a guided manual step in [manual-steps.md](manual-steps.md), usually a UI or account-console setting with a check.
+* **Test ID** (e.g. `D-01`): result in `test_results`. Tests run automatically unless marked MANUAL.
+* **M-xx**: a guided test in [manual-steps.md](manual-steps.md), usually a UI or account-console setting with a check.
 * **Walk-through**: discussed in the [runbook](runbook.md); no automated test, usually because it needs a client app, another product or customer-specific setup.
 * **Inventory**: a script lists the configuration (e.g. `scripts/account_checks.py`) without judging it.
 * **Pattern**: the lab tests a related mechanism that shows the principle, not this exact control (the note says which).
 
-Numbering follows the deck. Rows **31** and **78** are intentionally excluded: they have no separate control in this version of the matrix.
+Numbering follows the deck. Row **78** has no separate control in this version of the matrix.
 
-Statuses change often for Beta and Preview features. Re-check the linked doc page before relying on a status.
-
+Demo results follow from the lab's sandbox configuration and its example healthcare roles and
+data. Those roles can be mapped to your own. Audit tests record the observed state; PASS and FAIL
+in your review mean a comparison with **your targets**. The [configuration notes](configuration-notes.md)
+explain how different settings affect the observations.
 
 ## Layer 1 Platform
 
@@ -29,7 +33,7 @@ Statuses change often for Beta and Preview features. Re-check the linked doc pag
 | 10 | Front-end Private Link for account-level Genie One | Beta | Customer (Previews) | Walk-through | [docs](https://docs.databricks.com/aws/en/security/network/front-end/front-end-private-connect-account) |
 | 11 | Serverless egress control (network policies, NCC) | GA (Enterprise tier) | Customer | P-04 (MANUAL); `account_checks.py` lists network policies (inventory) | [docs](https://docs.databricks.com/aws/en/security/network/serverless-network-security/network-policies) |
 | 12 | Private network gateway (serverless to resources in the customer's private network) | PrPr (announced Aug 2026) | 🤝 Ask your Databricks account team | Walk-through | [docs](https://docs.databricks.com/aws/en/release-notes/product/2026/august) |
-| 13 | Compliance Security Profile (HIPAA, PCI-DSS, etc.) | GA (add-on) | Customer (commercial add-on) | P-08 | [docs](https://docs.databricks.com/aws/en/security/privacy/security-profile) |
+| 13 | Compliance Security Profile (HIPAA, PCI-DSS, etc.) | GA (add-on) | Customer (commercial add-on) | P-08 records CSP state | [docs](https://docs.databricks.com/aws/en/security/privacy/security-profile) |
 | 14 | Customer-managed keys (CMK) | GA | Customer (Enterprise tier) | Walk-through | [docs](https://docs.databricks.com/aws/en/security/keys/customer-managed-keys) |
 | 15 | Designated Services and cross-Geo processing | GA | Customer | P-06, P-07, D-05, R-01 (configuration) | [docs](https://docs.databricks.com/aws/en/resources/designated-services) |
 | 16 | System-table retention (30–3,650 days) | GA (18 Nov 2026) | Customer | Walk-through | [docs](https://docs.databricks.com/aws/en/admin/system-tables/) |
@@ -45,7 +49,7 @@ Statuses change often for Beta and Preview features. Re-check the linked doc pag
 | 21 | ABAC metastore-level policies, DENY policies | Beta (Sep 2026) | Customer | Walk-through | [docs](https://docs.databricks.com/aws/en/data-governance/unity-catalog/abac/metastore-policies) |
 | 22 | ABAC on views / shared views | Beta | Workspace Previews ("ABAC on Views"), DBR 19+ | Walk-through | [docs](https://docs.databricks.com/aws/en/data-governance/unity-catalog/abac/requirements) |
 | 23 | Governed tag propagation via lineage | Beta (Oct 2026) | Customer | Walk-through | [docs](https://docs.databricks.com/aws/en/admin/governed-tags/tag-propagation) |
-| 24 | Data Classification (auto PII detection) | GA (Apr 2026), incl. automatic tagging; views Beta | Customer | D-05 (MANUAL), D-08, M-03. Asia Geo: needs cross-Geo processing; fallback is manual `class.sg_*` tags | [docs](https://docs.databricks.com/aws/en/data-governance/unity-catalog/data-classification) |
+| 24 | Data Classification (auto PII detection) | GA (Apr 2026), incl. automatic tagging; views Beta | Customer | D-05 (MANUAL), D-08, M-03. In the Asia Geo, scans use cross-Geo processing; manual `class.sg_*` tags can exercise the same masking pattern | [docs](https://docs.databricks.com/aws/en/data-governance/unity-catalog/data-classification) |
 | 25 | Catalog–workspace bindings | GA | Customer | Walk-through | [docs](https://docs.databricks.com/aws/en/data-governance/unity-catalog/access-control/workspace-catalog-binding) |
 | 26 | Secrets in UC / external secrets (AWS SM) | PuPr / Beta | Customer | Walk-through | [docs](https://docs.databricks.com/aws/en/security/secrets/unity-catalog-secrets) |
 | 27 | Download and export settings | GA ⚠ (no label) | Customer | M-07 | [docs](https://docs.databricks.com/aws/en/admin/workspace-settings/notebooks) |
@@ -57,10 +61,10 @@ Statuses change often for Beta and Preview features. Re-check the linked doc pag
 | # | Control | Status | Who enables | Lab coverage | Doc |
 |---|---|---|---|---|---|
 | 30 | Unity Gateway (model, provider, MCP services as UC securables) | GA (4 Aug 2026); API/TF/SDK GA Sep 2026; bundles Beta | Customer | G-01, G-03, G-04, B-01, B-02, B-06, B-07 | [docs](https://docs.databricks.com/aws/en/ai-gateway/) |
-| 31 | Enforce Unity Gateway (workspace setting: disables `databricks-*` pay-per-token endpoints; no **new** external-model or provisioned-throughput serving endpoints outside Unity Gateway; existing ones stay queryable, inventory them via `system.serving.served_entities` or the serving endpoint list) | Not stated ⚠ (Unity Gateway is GA; the setting has no preview label and isn't on the Previews page) | Customer (workspace admin, Settings > Advanced; offered where legacy AI Gateway endpoints exist) | B-08, B-09 (audit; B-08 + B-09 PASS as admin = no existing external-model / PT route right now, usage history reviewed separately), B-05 (demo), M-14 | [docs](https://docs.databricks.com/aws/en/ai-gateway/migrate-to-unity-gateway) |
+| 31 | Enforce Unity Gateway (disables `databricks-*` pay-per-token endpoints and creation of **new** external-model or provisioned-throughput serving endpoints outside Unity Gateway; existing ones stay queryable) | Not stated ⚠ (Unity Gateway is GA; the setting has no preview label and isn't on the Previews page) | Customer (workspace admin, Settings > Advanced; offered where legacy AI Gateway endpoints exist) | B-08 records the setting, B-09 inventories existing routes and attaches usage evidence where available, B-05 probes new creation, M-14 checks the UI | [docs](https://docs.databricks.com/aws/en/ai-gateway/migrate-to-unity-gateway) |
 | 32 | ABAC GRANT policies for models and gateway services | GA (31 Aug 2026); agent services Beta | Customer | Pattern: G-01 tests a direct EXECUTE grant on the service, not a GRANT policy; GRANT policies: walk-through | [docs](https://docs.databricks.com/aws/en/ai-gateway/govern-access-to-models-with-grant-policies) |
 | 33 | External model provider services (OpenAI, Anthropic, Bedrock…) | GA | Customer | Walk-through | [docs](https://docs.databricks.com/aws/en/ai-gateway/model-provider-services) |
-| 34 | AI Functions UC permissions | GA (Oct 2026) | 🤝 Account team enables at account level; then the UC admin s | F-01 (INFO: records who can call), F-02 | [docs](https://docs.databricks.com/aws/en/large-language-models/ai-functions-uc-permissions) |
+| 34 | AI Functions UC permissions | GA (Oct 2026) | 🤝 Account team enables at account level; a Unity Catalog admin can configure grants | F-01 (INFO: records who can call), F-02 | [docs](https://docs.databricks.com/aws/en/large-language-models/ai-functions-uc-permissions) |
 | 35 | Rate limits (service, per user, per group, per SP; QPM/TPM) | GA ⚠ | Customer | G-03, M-05 | [docs](https://docs.databricks.com/aws/en/ai-gateway/rate-limits) |
 | 36 | Guardrails: safety, jailbreak, hallucination (service policies) | Beta | Workspace Previews ("Unity Gateway Service Policies") | G-02, M-04 | [docs](https://docs.databricks.com/aws/en/data-governance/unity-catalog/service-policies/) |
 | 37 | Guardrails: sensitive data detection (block or redact PII; log vs enforce) | Beta | Workspace Previews ("Unity Gateway Service Policies"). The A | G-02 (intended policy named in the response), M-04 | [docs](https://docs.databricks.com/aws/en/data-governance/unity-catalog/service-policies/detect-sensitive-data) |
@@ -77,7 +81,7 @@ Statuses change often for Beta and Preview features. Re-check the linked doc pag
 |---|---|---|---|---|---|
 | 44 | Entitlements (Databricks SQL to author; Consumer access to use) | GA | Customer | setup (personas) | [docs](https://docs.databricks.com/aws/en/security/auth/entitlements) |
 | 45 | Agent ACLs: CAN VIEW / RUN / EDIT / MANAGE; folder inheritance | GA | Customer | A-03 | [docs](https://docs.databricks.com/aws/en/genie-agents/set-up) |
-| 46 | Per-user UC enforcement (incl. filters/masks); only attached sources used (≤50 tables) | GA | Default | A-01, A-02, A-04 | [docs](https://docs.databricks.com/aws/en/genie-agents/set-up) |
+| 46 | Per-user UC enforcement (incl. filters/masks); only attached sources used (≤50 tables) | GA | Default | A-01, A-02, A-04; A-05 (MANUAL, Agent mode UI) | [docs](https://docs.databricks.com/aws/en/genie-agents/set-up) |
 | 47 | Embedded warehouse credentials (compute only) | GA | Default | Pattern: A-01 shows per-user masks despite the embedded warehouse credential | [docs](https://docs.databricks.com/aws/en/genie-agents/set-up) |
 | 48 | File upload in Genie Agents and Genie One | No label ⚠ | Customer | M-07 | [docs](https://docs.databricks.com/aws/en/genie-agents/file-upload) |
 | 49 | SQL is read-only; tools can write | — | — | Walk-through |  |
@@ -96,7 +100,7 @@ Statuses change often for Beta and Preview features. Re-check the linked doc pag
 |---|---|---|---|---|---|
 | 58 | Account-level Genie One and chat in Genie One | PuPr (per AI/BI release notes; docs page shows no label) | Customer | Walk-through | [docs](https://docs.databricks.com/aws/en/genie-one/) |
 | 59 | Account-level Genie One kill switch: *Settings → Feature enablement → Genie* (also stops metadata going to US-based services) | Available | Customer | M-06 | [docs](https://docs.databricks.com/aws/en/genie-one/) |
-| 60 | Workspace-level Genie One needs any entitlement; Consumer access is least privilege | GA | Customer | Walk-through | [docs](https://docs.databricks.com/aws/en/genie-one/) |
+| 60 | Workspace-level Genie One accepts any workspace entitlement, including Consumer access for users who don't need authoring access | GA | Customer | Walk-through | [docs](https://docs.databricks.com/aws/en/genie-one/) |
 | 61 | Account-only users (no workspace assignment; needs AIM/SCIM) | Beta | Customer (account setting) | Walk-through | [docs](https://docs.databricks.com/aws/en/genie-one/account-only-user-access) |
 | 62 | No separate permission model: UC privileges, filters/masks and catalog bindings enforced, SQL runs as user | GA | Default | Pattern: A-01 … A-04 probe a Genie **Agent** through the Conversation API, not Genie One | [docs](https://docs.databricks.com/aws/en/genie-one/) |
 | 63 | MCP connectors use the user's own OAuth, authorized per tool call via Unity Gateway | GA (Genie One MCP server GA Sep 2026) | Customer | Walk-through | [docs](https://docs.databricks.com/aws/en/genie-one/external-sources) |
@@ -108,7 +112,7 @@ Statuses change often for Beta and Preview features. Re-check the linked doc pag
 | 69 | CSP workspaces are excluded from account-level aggregation | GA | Default | Walk-through | [docs](https://docs.databricks.com/aws/en/genie-one/) |
 | 70 | Runs under the user's UC permissions | GA | Default | M-10 | [docs](https://docs.databricks.com/aws/en/genie-code/) |
 | 71 | Agentic mode needs partner-powered AI; when off, non-agentic Genie Code runs on a Databricks-hosted model in CSP workspaces: HIPAA (all regions), FedRAMP Moderate (US), PCI-DSS and HITRUST (US, ANZ only; not Singapore) | GA | Customer | Inventory: P-05 records the partner-powered AI setting; agentic / non-agentic Genie Code behaviour isn't tested | [docs](https://docs.databricks.com/aws/en/databricks-ai/partner-powered) |
-| 72 | Tool-action approval: per-action prompt vs. auto-approve. AI classifier, "not a security boundary". Auto-approve is the default and always on in Genie Code job tasks | GA | Customer (policy: per-action approval for prod; no Genie Cod | M-10 | [docs](https://docs.databricks.com/aws/en/genie-code/features-capabilities) |
+| 72 | Tool-action approval: per-action prompt vs. auto-approve. AI classifier, "not a security boundary". Auto-approve is the default and always on in Genie Code job tasks | GA | Customer (approval mode for interactive use) | M-10 records the selected mode | [docs](https://docs.databricks.com/aws/en/genie-code/features-capabilities) |
 | 73 | Workspace instructions, workspace skills, admin-curated MCP servers | GA | Customer | Walk-through | [docs](https://docs.databricks.com/aws/en/genie-code/instructions) |
 | 74 | Web search | Beta, off by default | Workspace Previews | Walk-through | [docs](https://docs.databricks.com/aws/en/genie-code/web-search) |
 | 75 | Genie Code CLI (model access via Unity Gateway) | GA (18 Nov 2026); needs cross-Geo in Singapore | Customer | Walk-through | [docs](https://docs.databricks.com/aws/en/genie-code/genie-code-cli) |
@@ -143,7 +147,7 @@ Statuses change often for Beta and Preview features. Re-check the linked doc pag
 | 95 | Budget roles (Budget Manager/Viewer), Spend Status API | Not stated ⚠ | Customer | Walk-through | [docs](https://docs.databricks.com/aws/en/admin/account-settings/budget-permissions) |
 | 96 | Daily per-user budget thresholds | Released 12 Nov 2026 (no label ⚠) | Customer | C-02 (MANUAL, inventory) | [docs](https://docs.databricks.com/aws/en/admin/account-settings/budgets) |
 | 97 | Serverless rate limits | Beta (11 Nov 2026) | Customer (Previews) | Walk-through | [docs](https://docs.databricks.com/aws/en/compute/serverless/manage-serverless-compute#set-rate-limits-on-serverless-compute) |
-| 98 | Warehouse-level statement timeouts | GA (20 Nov 2026) | Customer | C-01 | [docs](https://docs.databricks.com/aws/en/compute/sql-warehouse/warehouse-behavior#statement-timeout) |
+| 98 | Warehouse-level statement timeouts | GA (20 Nov 2026) | Customer | C-01 records the warehouse setting and effective timeout where readable | [docs](https://docs.databricks.com/aws/en/compute/sql-warehouse/warehouse-behavior#statement-timeout) |
 | 99 | Serverless usage policies (formerly budget policies) for tags | PuPr | Customer | Walk-through | [docs](https://docs.databricks.com/aws/en/admin/usage/budget-policies) |
 | 100 | Unity Gateway usage: `system.ai_gateway.usage` | PuPr; `external_model_spend` column Beta | Customer | O-02 (correlated with the suite run) | [docs](https://docs.databricks.com/aws/en/ai-gateway/usage-tracking) |
 | 101 | Inference tables | GA ⚠ | Customer | G-04 (lab_evidence; PENDING until rows arrive) | [docs](https://docs.databricks.com/aws/en/ai-gateway/inference-tables) |
